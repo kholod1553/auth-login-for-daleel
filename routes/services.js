@@ -4,9 +4,9 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// GET كل الخدمات (اختباري - لو عايز تحميه، أضف requireAuth)
+// GET كل الخدمات
 router.get("/", async (req, res) => {
-  const { data, error } = await supabase.from("services").select("*");
+  const { data, error } = await supabase.from("services").select("*"); // ✅ هنا الإصلاح
   if (error) return res.status(400).json({ error: error.message });
   res.json(data || []);
 });
@@ -40,16 +40,11 @@ router.post("/", requireAuth, async (req, res) => {
 
 // PUT تعديل خدمة (محمي)
 router.put("/:id", requireAuth, async (req, res) => {
-  console.log("PUT /:id تم استدعاؤه! ID:", req.params.id);
-  console.log("الـ user_id من التوكن:", req.user.id);
-
   const { id } = req.params;
   const { title, description, price, location } = req.body;
 
   if (!title && !description && !price && !location) {
-    return res
-      .status(400)
-      .json({ error: "يجب إرسال حقل واحد على الأقل للتعديل" });
+    return res.status(400).json({ error: "يجب إرسال حقل واحد على الأقل للتعديل" });
   }
 
   const { data, error } = await supabase
@@ -59,33 +54,28 @@ router.put("/:id", requireAuth, async (req, res) => {
     .eq("user_id", req.user.id)
     .select();
 
-  if (error) {
-    console.log("خطأ في update:", error);
-    return res.status(400).json({ error: error.message });
-  }
+  if (error) return res.status(400).json({ error: error.message });
 
   if (data.length === 0) {
-    return res.status(404).json({ error: "الخدمة غير موجودة أو ليست ملكك" });
+    return res.status(404).json({ error: "الخدمة غير موجودة أو غير مصرح" });
   }
 
-  res.json({
-    message: "تم التعديل بنجاح",
-    updated: data[0],
-  });
-  // DELETE service
-  router.delete("/:id", requireAuth, async (req, res) => {
-    const { id } = req.params;
+  res.json({ message: "تم التعديل بنجاح", updated: data[0] });
+});
 
-    const { error } = await supabase
-      .from("services")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", req.user.id);
+// DELETE خدمة (محمي) ✅ إصلاح: كان داخل PUT بالغلط
+router.delete("/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
 
-    if (error) return res.status(400).json(error);
+  const { error } = await supabase
+    .from("services")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", req.user.id);
 
-    res.json({ message: "Service deleted ✅" });
-  });
+  if (error) return res.status(400).json(error);
+
+  res.json({ message: "Service deleted ✅" });
 });
 
 export default router;
